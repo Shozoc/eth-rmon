@@ -23,7 +23,7 @@ def plotrmon(filepath):
                             name='TX Bandwidth'))
         fig.update_layout(title='Bandwidth Analysis '+filepath.name,  
         xaxis_title="Time Stamp",
-                 yaxis_title="Mbps", width=1080, height=600)
+                 yaxis_title="Mbps", width=2160, height=1200)
         bandwidth = st.number_input(label="Input Bandwidth :")
         col1, col2, col3,col4 = st.columns(4)
         col1.metric('Max RX',round(df["Bandwidth RX"].max(),2),delta=None)
@@ -51,7 +51,7 @@ def plotDiscard(filepath):
                     name='Queue3 Discard'))     
         fig1.update_layout(title='Discard Analysis '+filepath.name,  
         xaxis_title="Time Stamp",
-                 yaxis_title=" ", width=1080, height=600) 
+                 yaxis_title="Mbps", width=2160, height=1200) 
         return st.plotly_chart(fig1)      
 if uploaded_files is not None:
           # To read file as bytes:

@@ -1,77 +1,204 @@
 import pandas as pd
-import plotly.express as px
-import numpy as np
 import plotly.graph_objects as go
-from io import StringIO
 import streamlit as st
+import re
 
-uploaded_files = st.file_uploader("Choose a .rmon file",type = ['csv','rmon'], key=None)
+# ==============================================================================
+# 1. KONFIGURASI HALAMAN & CSS
+# ==============================================================================
+st.set_page_config(page_title="ETH RMON", layout="wide", initial_sidebar_state="expanded")
 
-#ethrmon.plotrmon('BW Util', uploaded_files)
-def plotrmon(filepath):
-        df = pd.read_csv(filepath, sep=",", skiprows=1)
-        #df['Time Stamp']= pd.to_timedelta(df['Time Stamp']+':00')
-        df = df.set_index('Time Stamp')  
-        df[['RX Octs','TX Octs','TX Queue0 Discard','TX Queue1 Discard','TX Queue2 Discard','TX Queue3 Discard']] = df[['RX Octs','TX Octs','TX Queue0 Discard','TX Queue1 Discard','TX Queue2 Discard','TX Queue3 Discard']].replace(r'\D', '',regex=True).astype(float) 
-        df[['Bandwidth RX','Bandwidth TX']] = df[['RX Octs','TX Octs']].apply( lambda x : (x*8/900)/1e6)
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=df.index, y=df['Bandwidth RX'],
-                    mode='lines',
-                    name='RX Bandwidth'))
-        fig.add_trace(go.Scatter(x=df.index, y=df['Bandwidth TX'],
-                            mode='lines',
-                            name='TX Bandwidth'))
-        fig.update_layout(title='Bandwidth Analysis '+filepath.name,  
-        xaxis_title="Time Stamp",
-                 yaxis_title="Mbps", width=1080, height=600)
-        bandwidth = st.number_input(label="Input Bandwidth :")
-        col1, col2, col3,col4 = st.columns(4)
-        col1.metric('Max RX',round(df["Bandwidth RX"].max(),2),delta=None)
-        col2.metric('Max TX',round(df["Bandwidth TX"].max(),2),delta=None)
-        col3.metric('Bandwidth TX Util (%)', (lambda x : round(x/bandwidth*100,2) if bandwidth > 0 else None)(df["Bandwidth TX"].max()),delta=None)
-        col4.metric('Bandwidth RX Util (%)', (lambda x : round(x/bandwidth*100,2) if bandwidth > 0 else None)(df["Bandwidth RX"].max()),delta=None)
-        return st.plotly_chart(fig)
-def plotDiscard(filepath):
-        df = pd.read_csv(filepath, sep=",", skiprows=1)
-        #df['Time Stamp']= pd.to_timedelta(df['Time Stamp']+':00')
-        df = df.set_index('Time Stamp')  
-        df[['RX Octs','TX Octs','TX Queue0 Discard','TX Queue1 Discard','TX Queue2 Discard','TX Queue3 Discard']] = df[['RX Octs','TX Octs','TX Queue0 Discard','TX Queue1 Discard','TX Queue2 Discard','TX Queue3 Discard']].replace(r'\D', '',regex=True).astype(float) 
+# CSS Kustom untuk mempercantik Metrics (Memberi efek Kartu / Card)
+st.markdown("""
+    <style>
+    div[data-testid="metric-container"] {
+        background-color: rgba(128, 128, 128, 0.05);
+        border: 1px solid rgba(128, 128, 128, 0.2);
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        transition: transform 0.2s;
+    }
+    div[data-testid="metric-container"]:hover {
+        transform: translateY(-5px);
+    }
+    .block-container {
+        padding-top: 2rem;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# ==============================================================================
+# 2. MENU SIDEBAR (KONTROL PANEL)
+# ==============================================================================
+with st.sidebar:
+    st.title("⚙️")
+    
+    uploaded_files = st.file_uploader("Upload .rmon / .csv", type=['csv', 'rmon'], accept_multiple_files=True)
+    
+    st.markdown("---")
+    type_an = st.radio("Pilih Modul :", ('Bandwidth Analysis', 'Discard Analysis'))
+    
+    st.markdown("---")
+    bandwidth_input = st.number_input(label="Kapasitas Bandwidth (Mbps):", min_value=0.0, value=0.0)
+    
+    st.markdown("---")
+    st.caption("Developed with Streamlit")
+    st.caption("Created by Alfian Bayu")
+
+# ==============================================================================
+# 3. KANVAS UTAMA DASHBOARD
+# ==============================================================================
+st.title("Kalkulator Bandwith Radio NEC")
+st.markdown("---")
+
+def plotrmon_merged(files, bandwidth):
+    df_list = []
+    # Membuat teks daftar nama file untuk judul grafik
+    if len(files) == 1:
+        files_title = files[0].name
+    else:
+        files_title = " + ".join([f.name for f in files])
+
+    for file in files:
+        temp_df = pd.read_csv(file, sep=",", skiprows=1)
+        # Ekstraksi Tanggal dari nama file
+        date_match = re.search(r'\d{8}', file.name)
+        if date_match:
+            date_str = date_match.group()
+            temp_df['Datetime'] = pd.to_datetime(date_str + ' ' + temp_df['Time Stamp'], format='%Y%m%d %H:%M', errors='coerce')
+        else:
+            temp_df['Datetime'] = temp_df['Time Stamp'] + " (" + file.name + ")"
+        df_list.append(temp_df)
+        
+    df = pd.concat(df_list, ignore_index=True)
+    if pd.api.types.is_datetime64_any_dtype(df['Datetime']):
+        df = df.sort_values('Datetime')
+    df = df.set_index('Datetime')
+    
+    orig_cols = ['RX Octs', 'TX Octs']
+    peak_cols = ['RX Peak Rate [Mbps]', 'TX Peak Rate [Mbps]']
+    
+    st.markdown(f"### Merged Data: {len(files)} File(s)")
+    
+    col_left, col_right = st.columns(2)
+    
+    # --- KOLOM KIRI (OCTETS) ---
+    with col_left:
+        if all(col in df.columns for col in orig_cols):
+            df[orig_cols] = df[orig_cols].replace(r'\D', '', regex=True).astype(float)
+            df['Bandwidth RX (Octs)'] = df['RX Octs'].apply(lambda x: (x * 8 / 900) / 1e6)
+            df['Bandwidth TX (Octs)'] = df['TX Octs'].apply(lambda x: (x * 8 / 900) / 1e6)
+            
+            fig_octs = go.Figure()
+            fig_octs.add_trace(go.Scatter(x=df.index, y=df['Bandwidth RX (Octs)'], mode='lines', name='RX', line=dict(color='#00D2FF', width=2), fill='tozeroy'))
+            fig_octs.add_trace(go.Scatter(x=df.index, y=df['Bandwidth TX (Octs)'], mode='lines', name='TX', line=dict(color='#FF007F', width=2)))
+            
+            # Sesuai permintaan: Kembali menggunakan format 'Bandwidth Analysis ' + nama file
+            fig_octs.update_layout(
+                title='Bandwidth Analysis ' + files_title + ' (Octets Mode)',
+                xaxis_title="", yaxis_title="Mbps", height=450,
+                plot_bgcolor='rgba(0,0,0,0)', 
+                hovermode="x unified", 
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                margin=dict(l=0, r=0, t=50, b=0)
+            )
+            fig_octs.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
+            st.plotly_chart(fig_octs, use_container_width=True)
+            
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric('Max RX', round(df["Bandwidth RX (Octs)"].max(), 2))
+            m2.metric('Max TX', round(df["Bandwidth TX (Octs)"].max(), 2))
+            m3.metric('RX Util %', (lambda x: round(x / bandwidth * 100, 2) if bandwidth > 0 else 0)(df["Bandwidth RX (Octs)"].max()))
+            m4.metric('TX Util %', (lambda x: round(x / bandwidth * 100, 2) if bandwidth > 0 else 0)(df["Bandwidth TX (Octs)"].max()))
+        else:
+            st.warning("Data TX/RX Octets tidak ditemukan.")
+
+    # --- KOLOM KANAN (PEAK RATE) ---
+    with col_right:
+        if all(col in df.columns for col in peak_cols):
+            df[peak_cols] = df[peak_cols].replace(r'[^\d\.]', '', regex=True).astype(float)
+            df['Bandwidth RX (Peak)'] = df['RX Peak Rate [Mbps]']
+            df['Bandwidth TX (Peak)'] = df['TX Peak Rate [Mbps]']
+            
+            fig_peak = go.Figure()
+            fig_peak.add_trace(go.Scatter(x=df.index, y=df['Bandwidth RX (Peak)'], mode='lines', name='RX', line=dict(color='#00FF87', width=2), fill='tozeroy'))
+            fig_peak.add_trace(go.Scatter(x=df.index, y=df['Bandwidth TX (Peak)'], mode='lines', name='TX', line=dict(color='#60EFFF', width=2)))
+            
+            # Sesuai permintaan: Kembali menggunakan format 'Bandwidth Analysis ' + nama file
+            fig_peak.update_layout(
+                title='Bandwidth Analysis ' + files_title + ' (Peak Rate Mode)',
+                xaxis_title="", yaxis_title="Mbps", height=450,
+                plot_bgcolor='rgba(0,0,0,0)',
+                hovermode="x unified",
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                margin=dict(l=0, r=0, t=50, b=0)
+            )
+            fig_peak.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
+            st.plotly_chart(fig_peak, use_container_width=True)
+            
+            m5, m6, m7, m8 = st.columns(4)
+            m5.metric('Max RX', round(df["Bandwidth RX (Peak)"].max(), 2))
+            m6.metric('Max TX', round(df["Bandwidth TX (Peak)"].max(), 2))
+            m7.metric('RX Util %', (lambda x: round(x / bandwidth * 100, 2) if bandwidth > 0 else 0)(df["Bandwidth RX (Peak)"].max()))
+            m8.metric('TX Util %', (lambda x: round(x / bandwidth * 100, 2) if bandwidth > 0 else 0)(df["Bandwidth TX (Peak)"].max()))
+        else:
+            st.info("Data TX/RX Peak Rate tidak ditemukan.")
+
+def plotDiscard(files):
+    df_list = []
+    if len(files) == 1:
+        files_title = files[0].name
+    else:
+        files_title = " + ".join([f.name for f in files])
+
+    for file in files:
+        temp_df = pd.read_csv(file, sep=",", skiprows=1)
+        date_match = re.search(r'\d{8}', file.name)
+        if date_match:
+            date_str = date_match.group()
+            temp_df['Datetime'] = pd.to_datetime(date_str + ' ' + temp_df['Time Stamp'], format='%Y%m%d %H:%M', errors='coerce')
+        else:
+            temp_df['Datetime'] = temp_df['Time Stamp'] + " (" + file.name + ")"
+        df_list.append(temp_df)
+        
+    df = pd.concat(df_list, ignore_index=True)
+    if pd.api.types.is_datetime64_any_dtype(df['Datetime']):
+        df = df.sort_values('Datetime')
+    df = df.set_index('Datetime')
+    
+    discard_cols = ['TX Queue0 Discard', 'TX Queue1 Discard', 'TX Queue2 Discard', 'TX Queue3 Discard']
+    if all(col in df.columns for col in discard_cols):
+        df[discard_cols] = df[discard_cols].replace(r'\D', '', regex=True).astype(float) 
+        
+        st.markdown(f"### Discard Analysis: {len(files)} File(s)")
+        
         fig1 = go.Figure()
-        fig1.add_trace(go.Scatter(x=df.index, y=df['TX Queue0 Discard'],
-                    mode='lines',
-                    name='Queue0 Discard'))
-        fig1.add_trace(go.Scatter(x=df.index, y=df['TX Queue1 Discard'],
-                    mode='lines',
-                    name='Queue1 Discard'))
-        fig1.add_trace(go.Scatter(x=df.index, y=df['TX Queue2 Discard'],
-                    mode='lines',
-                    name='Queue2 Discard'))
-        fig1.add_trace(go.Scatter(x=df.index, y=df['TX Queue3 Discard'],
-                    mode='lines',
-                    name='Queue3 Discard'))     
-        fig1.update_layout(title='Discard Analysis '+filepath.name,  
-        xaxis_title="Time Stamp",
-                 yaxis_title="Mbps", width=1080, height=600) 
-        return st.plotly_chart(fig1)      
-if uploaded_files is not None:
-          # To read file as bytes:
-     bytes_data = uploaded_files.getvalue()
-     #st.write(bytes_data)
+        colors = ['#FF4B4B', '#FFAA00', '#00D2FF', '#00FF87']
+        for i, col in enumerate(discard_cols):
+            fig1.add_trace(go.Scatter(x=df.index, y=df[col], mode='lines', name=col.replace('TX ', ''), line=dict(color=colors[i], width=2)))
+        
+        # Sesuai permintaan: Kembali menggunakan format 'Discard Analysis ' + nama file
+        fig1.update_layout(
+            title='Discard Analysis ' + files_title, 
+            xaxis_title="", yaxis_title="Mbps", height=500,
+            plot_bgcolor='rgba(0,0,0,0)',
+            hovermode="x unified",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        ) 
+        fig1.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
+        
+        st.plotly_chart(fig1, use_container_width=True)
+    else:
+        st.warning("Kolom antrean Discard tidak lengkap di file yang diupload.")
 
-     # To convert to a string based IO:
-     stringio = StringIO(uploaded_files.getvalue().decode("utf-8"))
-     #st.write(stringio)
-
-     # To read file as string:
-     string_data = stringio.read()
-     #st.write(string_data)
-
-     # Can be used wherever a "file-like" object is accepted:
-
-     type_an = st.radio(
-           "Select :  ",
-                 ('Bandwidth Analysis', 'Discard Analysis'))
-     if type_an == 'Bandwidth Analysis': 
-             plotrmon(uploaded_files) 
-     else: 
-          plotDiscard(uploaded_files)
+# ==============================================================================
+# 4. LOGIKA EKSEKUSI
+# ==============================================================================
+if uploaded_files:
+    if type_an == 'Bandwidth Analysis': 
+        plotrmon_merged(uploaded_files, bandwidth_input) 
+    else: 
+        plotDiscard(uploaded_files)
+else:
+    st.info("👈 Upload file .rmon atau .csv pada panel di sebelah kiri untuk memulai kalkulasi.")

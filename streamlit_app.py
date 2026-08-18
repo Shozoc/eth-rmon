@@ -2,6 +2,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 import re
+
 st.set_page_config(page_title="ETH RMON", layout="wide", initial_sidebar_state="expanded")
 
 # CSS
@@ -40,7 +41,7 @@ with st.sidebar:
     st.caption("Developed with Streamlit")
     st.caption("Created by Alfian Bayu")
 
-#  DASHBOARD
+# DASHBOARD
 st.title("Kalkulator Bandwith Radio NEC")
 st.markdown("---")
 
@@ -95,11 +96,17 @@ def plotrmon_merged(files, bandwidth):
             fig_octs.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
             st.plotly_chart(fig_octs, use_container_width=True)
             
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric('Max RX', round(df["Bandwidth RX (Octs)"].max(), 2))
-            m2.metric('Max TX', round(df["Bandwidth TX (Octs)"].max(), 2))
-            m3.metric('RX Util %', (lambda x: round(x / bandwidth * 100, 2) if bandwidth > 0 else 0)(df["Bandwidth RX (Octs)"].max()))
-            m4.metric('TX Util %', (lambda x: round(x / bandwidth * 100, 2) if bandwidth > 0 else 0)(df["Bandwidth TX (Octs)"].max()))
+            st.markdown("##### Receive (RX) Metrics")
+            rx1, rx2, rx3 = st.columns(3)
+            rx1.metric('Max RX (Mbps)', round(df["Bandwidth RX (Octs)"].max(), 2))
+            rx2.metric('Min RX (Mbps)', round(df["Bandwidth RX (Octs)"].min(), 2))
+            rx3.metric('RX Util (%)', (lambda x: round(x / bandwidth * 100, 2) if bandwidth > 0 else 0)(df["Bandwidth RX (Octs)"].max()))
+            
+            st.markdown("##### Transmit (TX) Metrics")
+            tx1, tx2, tx3 = st.columns(3)
+            tx1.metric('Max TX (Mbps)', round(df["Bandwidth TX (Octs)"].max(), 2))
+            tx2.metric('Min TX (Mbps)', round(df["Bandwidth TX (Octs)"].min(), 2))
+            tx3.metric('TX Util (%)', (lambda x: round(x / bandwidth * 100, 2) if bandwidth > 0 else 0)(df["Bandwidth TX (Octs)"].max()))
         else:
             st.warning("Data TX/RX Octets tidak ditemukan.")
 
@@ -125,11 +132,17 @@ def plotrmon_merged(files, bandwidth):
             fig_peak.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
             st.plotly_chart(fig_peak, use_container_width=True)
             
-            m5, m6, m7, m8 = st.columns(4)
-            m5.metric('Max RX', round(df["Bandwidth RX (Peak)"].max(), 2))
-            m6.metric('Max TX', round(df["Bandwidth TX (Peak)"].max(), 2))
-            m7.metric('RX Util %', (lambda x: round(x / bandwidth * 100, 2) if bandwidth > 0 else 0)(df["Bandwidth RX (Peak)"].max()))
-            m8.metric('TX Util %', (lambda x: round(x / bandwidth * 100, 2) if bandwidth > 0 else 0)(df["Bandwidth TX (Peak)"].max()))
+            st.markdown("##### Receive (RX) Metrics")
+            rx4, rx5, rx6 = st.columns(3)
+            rx4.metric('Max RX (Mbps)', round(df["Bandwidth RX (Peak)"].max(), 2))
+            rx5.metric('Min RX (Mbps)', round(df["Bandwidth RX (Peak)"].min(), 2))
+            rx6.metric('RX Util (%)', (lambda x: round(x / bandwidth * 100, 2) if bandwidth > 0 else 0)(df["Bandwidth RX (Peak)"].max()))
+            
+            st.markdown("##### Transmit (TX) Metrics")
+            tx4, tx5, tx6 = st.columns(3)
+            tx4.metric('Max TX (Mbps)', round(df["Bandwidth TX (Peak)"].max(), 2))
+            tx5.metric('Min TX (Mbps)', round(df["Bandwidth TX (Peak)"].min(), 2))
+            tx6.metric('TX Util (%)', (lambda x: round(x / bandwidth * 100, 2) if bandwidth > 0 else 0)(df["Bandwidth TX (Peak)"].max()))
         else:
             st.info("Data TX/RX Peak Rate tidak ditemukan.")
 

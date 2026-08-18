@@ -2,13 +2,9 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 import re
-
-# ==============================================================================
-# 1. KONFIGURASI HALAMAN & CSS
-# ==============================================================================
 st.set_page_config(page_title="ETH RMON", layout="wide", initial_sidebar_state="expanded")
 
-# CSS Kustom untuk mempercantik Metrics (Memberi efek Kartu / Card)
+# CSS
 st.markdown("""
     <style>
     div[data-testid="metric-container"] {
@@ -28,9 +24,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ==============================================================================
-# 2. MENU SIDEBAR (KONTROL PANEL)
-# ==============================================================================
+# SIDEBAR
 with st.sidebar:
     st.title("⚙️")
     
@@ -46,15 +40,12 @@ with st.sidebar:
     st.caption("Developed with Streamlit")
     st.caption("Created by Alfian Bayu")
 
-# ==============================================================================
-# 3. KANVAS UTAMA DASHBOARD
-# ==============================================================================
+#  DASHBOARD
 st.title("Kalkulator Bandwith Radio NEC")
 st.markdown("---")
 
 def plotrmon_merged(files, bandwidth):
     df_list = []
-    # Membuat teks daftar nama file untuk judul grafik
     if len(files) == 1:
         files_title = files[0].name
     else:
@@ -62,7 +53,6 @@ def plotrmon_merged(files, bandwidth):
 
     for file in files:
         temp_df = pd.read_csv(file, sep=",", skiprows=1)
-        # Ekstraksi Tanggal dari nama file
         date_match = re.search(r'\d{8}', file.name)
         if date_match:
             date_str = date_match.group()
@@ -83,7 +73,7 @@ def plotrmon_merged(files, bandwidth):
     
     col_left, col_right = st.columns(2)
     
-    # --- KOLOM KIRI (OCTETS) ---
+    # OCTETS
     with col_left:
         if all(col in df.columns for col in orig_cols):
             df[orig_cols] = df[orig_cols].replace(r'\D', '', regex=True).astype(float)
@@ -94,7 +84,6 @@ def plotrmon_merged(files, bandwidth):
             fig_octs.add_trace(go.Scatter(x=df.index, y=df['Bandwidth RX (Octs)'], mode='lines', name='RX', line=dict(color='#00D2FF', width=2), fill='tozeroy'))
             fig_octs.add_trace(go.Scatter(x=df.index, y=df['Bandwidth TX (Octs)'], mode='lines', name='TX', line=dict(color='#FF007F', width=2)))
             
-            # Sesuai permintaan: Kembali menggunakan format 'Bandwidth Analysis ' + nama file
             fig_octs.update_layout(
                 title='Bandwidth Analysis ' + files_title + ' (Octets Mode)',
                 xaxis_title="", yaxis_title="Mbps", height=450,
@@ -114,7 +103,7 @@ def plotrmon_merged(files, bandwidth):
         else:
             st.warning("Data TX/RX Octets tidak ditemukan.")
 
-    # --- KOLOM KANAN (PEAK RATE) ---
+    # PEAK RATE
     with col_right:
         if all(col in df.columns for col in peak_cols):
             df[peak_cols] = df[peak_cols].replace(r'[^\d\.]', '', regex=True).astype(float)
@@ -125,7 +114,6 @@ def plotrmon_merged(files, bandwidth):
             fig_peak.add_trace(go.Scatter(x=df.index, y=df['Bandwidth RX (Peak)'], mode='lines', name='RX', line=dict(color='#00FF87', width=2), fill='tozeroy'))
             fig_peak.add_trace(go.Scatter(x=df.index, y=df['Bandwidth TX (Peak)'], mode='lines', name='TX', line=dict(color='#60EFFF', width=2)))
             
-            # Sesuai permintaan: Kembali menggunakan format 'Bandwidth Analysis ' + nama file
             fig_peak.update_layout(
                 title='Bandwidth Analysis ' + files_title + ' (Peak Rate Mode)',
                 xaxis_title="", yaxis_title="Mbps", height=450,
@@ -178,7 +166,6 @@ def plotDiscard(files):
         for i, col in enumerate(discard_cols):
             fig1.add_trace(go.Scatter(x=df.index, y=df[col], mode='lines', name=col.replace('TX ', ''), line=dict(color=colors[i], width=2)))
         
-        # Sesuai permintaan: Kembali menggunakan format 'Discard Analysis ' + nama file
         fig1.update_layout(
             title='Discard Analysis ' + files_title, 
             xaxis_title="", yaxis_title="Mbps", height=500,
@@ -192,9 +179,6 @@ def plotDiscard(files):
     else:
         st.warning("Kolom antrean Discard tidak lengkap di file yang diupload.")
 
-# ==============================================================================
-# 4. LOGIKA EKSEKUSI
-# ==============================================================================
 if uploaded_files:
     if type_an == 'Bandwidth Analysis': 
         plotrmon_merged(uploaded_files, bandwidth_input) 

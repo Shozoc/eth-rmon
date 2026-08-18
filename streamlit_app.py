@@ -85,7 +85,7 @@ def plotrmon_merged(files, bandwidth):
             fig_octs.add_trace(go.Scatter(x=df.index, y=df['Bandwidth TX (Octs)'], mode='lines', name='TX', line=dict(color='#FF007F', width=2)))
             
             fig_octs.update_layout(
-                title='Bandwidth Analysis ' + files_title + ' (Octets Mode)',
+                title='Bandwidth Analysis ' + files_title + '<br><sup>Calculated from TX/RX Octets</sup>',
                 xaxis_title="", yaxis_title="Mbps", height=450,
                 plot_bgcolor='rgba(0,0,0,0)', 
                 hovermode="x unified", 
@@ -112,10 +112,10 @@ def plotrmon_merged(files, bandwidth):
             
             fig_peak = go.Figure()
             fig_peak.add_trace(go.Scatter(x=df.index, y=df['Bandwidth RX (Peak)'], mode='lines', name='RX', line=dict(color='#00FF87', width=2), fill='tozeroy'))
-            fig_peak.add_trace(go.Scatter(x=df.index, y=df['Bandwidth TX (Peak)'], mode='lines', name='TX', line=dict(color='#60EFFF', width=2)))
+            fig_peak.add_trace(go.Scatter(x=df.index, y=df['Bandwidth TX (Peak)'], mode='lines', name='TX', line=dict(color='#FF007F', width=2)))
             
             fig_peak.update_layout(
-                title='Bandwidth Analysis ' + files_title + ' (Peak Rate Mode)',
+                title='Bandwidth Analysis ' + files_title + '<br><sup>Reported Peak Rate [Mbps]</sup>',
                 xaxis_title="", yaxis_title="Mbps", height=450,
                 plot_bgcolor='rgba(0,0,0,0)',
                 hovermode="x unified",

@@ -181,7 +181,7 @@ def plotDiscard(files):
         
         fig1.update_layout(
             title='Discard Analysis ' + files_title, 
-            xaxis_title="", yaxis_title="Mbps", height=500,
+            xaxis_title="", yaxis_title="Packets", height=500,
             plot_bgcolor='rgba(0,0,0,0)',
             hovermode="x unified",
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)

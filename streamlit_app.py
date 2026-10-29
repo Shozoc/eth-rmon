@@ -42,7 +42,7 @@ with st.sidebar:
     st.caption("Created by Alfian Bayu")
 
 # DASHBOARD
-st.title("Kalkulator Bandwith Radio NEC")
+st.title("Kalkulator Bandwidth Radio NEC")
 st.markdown("---")
 
 def plotrmon_merged(files, bandwidth):
@@ -168,29 +168,38 @@ def plotDiscard(files):
         df = df.sort_values('Datetime')
     df = df.set_index('Datetime')
     
-    discard_cols = ['TX Queue0 Discard', 'TX Queue1 Discard', 'TX Queue2 Discard', 'TX Queue3 Discard']
-    if all(col in df.columns for col in discard_cols):
-        df[discard_cols] = df[discard_cols].replace(r'\D', '', regex=True).astype(float) 
-        
+    # Perangkat mendukung TX Queue0-7 Discard (dokumen NEC iPASOLINK VR 4 & EX Advanced)
+    discard_cols = [f'TX Queue{i} Discard' for i in range(8)]
+    available_cols = [col for col in discard_cols if col in df.columns]
+    missing_cols = [col for col in discard_cols if col not in df.columns]
+
+    if available_cols:
+        df[available_cols] = df[available_cols].replace(r'\D', '', regex=True).astype(float)
+
         st.markdown(f"### Discard Analysis: {len(files)} File(s)")
-        
+
         fig1 = go.Figure()
-        colors = ['#FF4B4B', '#FFAA00', '#00D2FF', '#00FF87']
+        colors = ['#FF4B4B', '#FFAA00', '#00D2FF', '#00FF87',
+                  '#B388FF', '#FF79C6', '#F1FA8C', '#8BE9FD']
         for i, col in enumerate(discard_cols):
-            fig1.add_trace(go.Scatter(x=df.index, y=df[col], mode='lines', name=col.replace('TX ', ''), line=dict(color=colors[i], width=2)))
-        
+            if col in available_cols:
+                fig1.add_trace(go.Scatter(x=df.index, y=df[col], mode='lines', name=col.replace('TX ', ''), line=dict(color=colors[i], width=2)))
+
         fig1.update_layout(
-            title='Discard Analysis ' + files_title, 
+            title='Discard Analysis ' + files_title,
             xaxis_title="", yaxis_title="Packets", height=500,
             plot_bgcolor='rgba(0,0,0,0)',
             hovermode="x unified",
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-        ) 
+        )
         fig1.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
-        
+
         st.plotly_chart(fig1, use_container_width=True)
+
+        if missing_cols:
+            st.info("Kolom tidak ditemukan di file: " + ", ".join(missing_cols))
     else:
-        st.warning("Kolom antrean Discard tidak lengkap di file yang diupload.")
+        st.warning("Kolom antrean Discard (TX Queue0-7) tidak ditemukan di file yang diupload.")
 
 if uploaded_files:
     if type_an == 'Bandwidth Analysis': 

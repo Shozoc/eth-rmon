@@ -45,6 +45,16 @@ with st.sidebar:
 st.title("Kalkulator Bandwidth Radio NEC")
 st.markdown("---")
 
+def parse_datetime(date_str, time_series):
+    """Gabungkan tanggal (dari nama file) dengan kolom Time Stamp.
+    Perangkat mencatat interval terakhir hari itu sebagai '24:00', yang tidak valid
+    di format %H:%M, sehingga diperlakukan sebagai 00:00 pada hari berikutnya."""
+    time_clean = time_series.astype(str).str.strip()
+    is_end_of_day = time_clean == '24:00'
+    time_clean = time_clean.where(~is_end_of_day, '00:00')
+    dt = pd.to_datetime(date_str + ' ' + time_clean, format='%Y%m%d %H:%M', errors='coerce')
+    return dt.where(~is_end_of_day, dt + pd.Timedelta(days=1))
+
 def plotrmon_merged(files, bandwidth):
     df_list = []
     if len(files) == 1:
@@ -57,7 +67,7 @@ def plotrmon_merged(files, bandwidth):
         date_match = re.search(r'\d{8}', file.name)
         if date_match:
             date_str = date_match.group()
-            temp_df['Datetime'] = pd.to_datetime(date_str + ' ' + temp_df['Time Stamp'], format='%Y%m%d %H:%M', errors='coerce')
+            temp_df['Datetime'] = parse_datetime(date_str, temp_df['Time Stamp'])
         else:
             temp_df['Datetime'] = temp_df['Time Stamp'] + " (" + file.name + ")"
         df_list.append(temp_df)
@@ -158,7 +168,7 @@ def plotDiscard(files):
         date_match = re.search(r'\d{8}', file.name)
         if date_match:
             date_str = date_match.group()
-            temp_df['Datetime'] = pd.to_datetime(date_str + ' ' + temp_df['Time Stamp'], format='%Y%m%d %H:%M', errors='coerce')
+            temp_df['Datetime'] = parse_datetime(date_str, temp_df['Time Stamp'])
         else:
             temp_df['Datetime'] = temp_df['Time Stamp'] + " (" + file.name + ")"
         df_list.append(temp_df)

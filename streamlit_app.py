@@ -25,6 +25,48 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# ==================== POPUP EVALUASI (MULAI) ====================
+import datetime
+import streamlit.components.v1 as components
+
+EVAL_POPUP_AKTIF = True
+EVAL_FORM_URL = "https://forms.gle/e4ByxSR2SjknGNcS6"
+
+def _hari_ini():
+    return datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=7))).date().isoformat()
+
+def _disembunyikan_hari_ini():
+    # membaca cookie
+    try:
+        return st.context.cookies.get("eval_hide") == _hari_ini()
+    except Exception:
+        return False
+
+if EVAL_POPUP_AKTIF and hasattr(st, "dialog"):
+    @st.dialog("Evaluasi Pengguna")
+    def _popup_evaluasi():
+        st.write("Mohon luangkan waktu sekitar 5 menit untuk mengisi kuesioner evaluasi aplikasi ini. "
+                 "Masukan Anda membantu pengembangan sistem.")
+        st.link_button("Isi Formulir Evaluasi", EVAL_FORM_URL, type="primary", use_container_width=True)
+        sembunyikan = st.checkbox("Jangan tampilkan lagi hari ini")
+        if st.button("Tutup", use_container_width=True):
+            if sembunyikan:
+                st.session_state["eval_set_cookie"] = True
+            st.rerun()
+
+    # tampil sekali per sesi, kecuali sudah disembunyikan untuk hari ini
+    if not st.session_state.get("eval_shown") and not _disembunyikan_hari_ini():
+        st.session_state["eval_shown"] = True
+        _popup_evaluasi()
+
+    # simpan pilihan
+    if st.session_state.pop("eval_set_cookie", False):
+        components.html(
+            f"<script>document.cookie = 'eval_hide={_hari_ini()}; path=/; max-age=86400; SameSite=Lax';</script>",
+            height=0,
+        )
+# ==================== POPUP EVALUASI (SELESAI) ====================
+
 # SIDEBAR
 with st.sidebar:
     st.title("⚙️")
@@ -178,7 +220,7 @@ def plotDiscard(files):
         df = df.sort_values('Datetime')
     df = df.set_index('Datetime')
     
-    # Perangkat mendukung TX Queue0-7 Discard (dokumen NEC iPASOLINK VR 4 & EX Advanced)
+    # Perangkat mendukung TX Queue0-7 Discard
     discard_cols = [f'TX Queue{i} Discard' for i in range(8)]
     available_cols = [col for col in discard_cols if col in df.columns]
     missing_cols = [col for col in discard_cols if col not in df.columns]
